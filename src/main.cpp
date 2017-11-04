@@ -216,8 +216,8 @@ int main() {
 //          auto end = get_time::now();
 //          cout<<"Elapsed time is :  "<< chrono::duration_cast<ns>(end - start).count()<<" ns "<<endl;
 
-//          msgJson["next_x"] = possible_trajectories[0].x;
-//          msgJson["next_y"] = possible_trajectories[0].y;
+          msgJson["next_x"] = possible_trajectories[0].x;
+          msgJson["next_y"] = possible_trajectories[0].y;
 
           auto msg = "42[\"control\","+ msgJson.dump()+"]";
 
