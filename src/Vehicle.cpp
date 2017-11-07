@@ -27,7 +27,7 @@ Vehicle::Vehicle(double x, double y, double s, double d, double yaw, double v) {
 Vehicle::~Vehicle() {}
 
 Vehicle::next_vals Vehicle::trajectory_for_state(
-    int lane, Map &map, double ref_vel, int prev_size,
+    int lane, double target, Map &map, double ref_vel, int prev_size,
     vector<double> previous_path_x, vector<double> previous_path_y) {
   vector<double> ptsx;
   vector<double> ptsy;
@@ -92,7 +92,7 @@ Vehicle::next_vals Vehicle::trajectory_for_state(
     next_vals.y.push_back((previous_path_y[i]));
   }
 
-  double target_x = 30.0;
+  double target_x = target;
   double target_y = s(target_x);
   double target_dist = sqrt(target_x*target_x + target_y*target_y);
 

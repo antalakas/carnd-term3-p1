@@ -47,7 +47,7 @@ public:
     Trigonometry trigonometry;
 
     Vehicle::next_vals trajectory_for_state(
-        int lane, Map &map, double ref_vel, int prev_size,
+        int lane, double target, Map &map, double ref_vel, int prev_size,
         vector<double> previous_path_x, vector<double> previous_path_y);
 };
 
