@@ -52,184 +52,184 @@ int main() {
 
   string line;
   while (getline(in_map_, line)) {
-  	istringstream iss(line);
-  	double x;
-  	double y;
-  	float s;
-  	float d_x;
-  	float d_y;
-  	iss >> x;
-  	iss >> y;
-  	iss >> s;
-  	iss >> d_x;
-  	iss >> d_y;
-  	map.waypoints_x.push_back(x);
-  	map.waypoints_y.push_back(y);
-  	map.waypoints_s.push_back(s);
-  	map.waypoints_dx.push_back(d_x);
-  	map.waypoints_dy.push_back(d_y);
+    istringstream iss(line);
+    double x;
+    double y;
+    float s;
+    float d_x;
+    float d_y;
+    iss >> x;
+    iss >> y;
+    iss >> s;
+    iss >> d_x;
+    iss >> d_y;
+    map.waypoints_x.push_back(x);
+    map.waypoints_y.push_back(y);
+    map.waypoints_s.push_back(s);
+    map.waypoints_dx.push_back(d_x);
+    map.waypoints_dy.push_back(d_y);
   }
 
   h.onMessage([&map, &trigonometry, &lane, &ref_vel](
       uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
-    // "42" at the start of the message means there's a websocket message event.
-    // The 4 signifies a websocket message
-    // The 2 signifies a websocket event
-    //auto sdata = string(data).substr(0, length);
-    //cout << sdata << endl;
-    if (length && length > 2 && data[0] == '4' && data[1] == '2') {
-      auto s = hasData(data);
+      // "42" at the start of the message means there's a websocket message event.
+      // The 4 signifies a websocket message
+      // The 2 signifies a websocket event
+      //auto sdata = string(data).substr(0, length);
+      //cout << sdata << endl;
+      if (length && length > 2 && data[0] == '4' && data[1] == '2') {
+        auto s = hasData(data);
 
-      if (s != "") {
-        auto j = json::parse(s);
-        
-        string event = j[0].get<string>();
-        
-        if (event == "telemetry") {
-          // j[1] is the data JSON object
-          
-        	// Main car's localization Data
-          double car_x = j[1]["x"];
-          double car_y = j[1]["y"];
-          double car_s = j[1]["s"];
-          double car_d = j[1]["d"];
-          double car_yaw = j[1]["yaw"];
-          double car_speed = j[1]["speed"];
+        if (s != "") {
+          auto j = json::parse(s);
 
-          // Previous path data given to the Planner
-          auto previous_path_x = j[1]["previous_path_x"];
-          auto previous_path_y = j[1]["previous_path_y"];
-          // Previous path's end s and d values
-          double end_path_s = j[1]["end_path_s"];
-          double end_path_d = j[1]["end_path_d"];
+          string event = j[0].get<string>();
 
-          // Sensor Fusion Data, a list of all other cars on the same side of the road.
-          auto sensor_fusion = j[1]["sensor_fusion"];
+          if (event == "telemetry") {
+            // j[1] is the data JSON object
 
-          json msgJson;
+            // Main car's localization Data
+            double car_x = j[1]["x"];
+            double car_y = j[1]["y"];
+            double car_s = j[1]["s"];
+            double car_d = j[1]["d"];
+            double car_yaw = j[1]["yaw"];
+            double car_speed = j[1]["speed"];
 
-          int prev_size = previous_path_x.size();
+            // Previous path data given to the Planner
+            auto previous_path_x = j[1]["previous_path_x"];
+            auto previous_path_y = j[1]["previous_path_y"];
+            // Previous path's end s and d values
+            double end_path_s = j[1]["end_path_s"];
+            double end_path_d = j[1]["end_path_d"];
 
-          // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
-          if (prev_size > 0) {
-            car_s = end_path_s;
-          }
+            // Sensor Fusion Data, a list of all other cars on the same side of the road.
+            auto sensor_fusion = j[1]["sensor_fusion"];
 
-          bool too_close = false;
-          bool lane_prohibited[3];
-          lane_prohibited[0] = false;
-          lane_prohibited[1] = false;
-          lane_prohibited[2] = false;
+            json msgJson;
+
+            int prev_size = previous_path_x.size();
+
+            // TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
+            if (prev_size > 0) {
+              car_s = end_path_s;
+            }
+
+            bool too_close = false;
+            bool lane_prohibited[3];
+            lane_prohibited[0] = false;
+            lane_prohibited[1] = false;
+            lane_prohibited[2] = false;
 
 //          vector<int> too_close_vehicles;
 
-          cout << "ego s: " << car_s << " ego d: " << car_d << endl;
+            cout << "ego s: " << car_s << " ego d: " << car_d << endl;
 
-          for (int i=0; i<sensor_fusion.size(); i++) {
-            float d = sensor_fusion[i][6];
-            double check_car_s = sensor_fusion[i][5];
+            for (int i=0; i<sensor_fusion.size(); i++) {
+              float d = sensor_fusion[i][6];
+              double check_car_s = sensor_fusion[i][5];
 
-            if (d<(2+4*lane+2) && d>(2+4*lane-2)) {
-              double vx = sensor_fusion[i][3];
-              double vy = sensor_fusion[i][4];
-              double check_speed = sqrt(vx*vx + vy*vy);
+              if (d<(2+4*lane+2) && d>(2+4*lane-2)) {
+                double vx = sensor_fusion[i][3];
+                double vy = sensor_fusion[i][4];
+                double check_speed = sqrt(vx*vx + vy*vy);
 
-              check_car_s += ((double)prev_size*.02*check_speed);
+                check_car_s += ((double)prev_size*.02*check_speed);
 
-              if ((check_car_s > car_s) &&( (check_car_s-car_s) < 30)) {
-                // Decide to leave safe buffer ahead in current lane
-                too_close = true;
+                if ((check_car_s > car_s) &&( (check_car_s-car_s) < 30)) {
+                  // Decide to leave safe buffer ahead in current lane
+                  too_close = true;
 //                if (lane>0) {
 //                  lane = 0;
 //                }
-              }
-            } else {
-              if (abs(check_car_s - car_s) < 20) {
-                cout << "car_id: " << sensor_fusion[i][0] << " s: " << check_car_s << " d: " << d << endl;
-                if (d<4 && d>0) {
-                  lane_prohibited[0] = true;
                 }
-                if (d<8 && d>4) {
-                  lane_prohibited[1] = true;
-                }
-                if (d<12 && d>8) {
-                  lane_prohibited[2] = true;
-                }
+              } else {
+                if (abs(check_car_s - car_s) < 20) {
+                  cout << "car_id: " << sensor_fusion[i][0] << " s: " << check_car_s << " d: " << d << endl;
+                  if (d<4 && d>0) {
+                    lane_prohibited[0] = true;
+                  }
+                  if (d<8 && d>4) {
+                    lane_prohibited[1] = true;
+                  }
+                  if (d<12 && d>8) {
+                    lane_prohibited[2] = true;
+                  }
 //                too_close_vehicles.push_back(i);
+                }
               }
             }
-          }
 
-          if (too_close) {
-            ref_vel -= 0.224;
-          }
-          else if (ref_vel < 49.5) {
-            ref_vel += 0.224;
-          }
+            if (too_close) {
+              ref_vel -= 0.224;
+            }
+            else if (ref_vel < 49.5) {
+              ref_vel += 0.224;
+            }
 
-          auto start = get_time::now();
-          Vehicle ego(car_x, car_y, car_s, car_d, car_yaw, car_speed);
-          vector<Vehicle::next_vals> possible_trajectories;
+            auto start = get_time::now();
+            Vehicle ego(car_x, car_y, car_s, car_d, car_yaw, car_speed);
+            vector<Vehicle::next_vals> possible_trajectories;
 //          possible_trajectories.push_back(
 //              ego.trajectory_for_state(lane, map, ref_vel, prev_size, previous_path_x, previous_path_y));
-          switch (lane) {
-            case 0:
-              if (too_close) {
-                if (!lane_prohibited[1]) {
-                  lane = 1;
+            switch (lane) {
+              case 0:
+                if (too_close) {
+                  if (!lane_prohibited[1]) {
+                    lane = 1;
+                  }
+                  possible_trajectories.push_back(
+                      ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
+                } else {
+                  possible_trajectories.push_back(
+                      ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
                 }
-                possible_trajectories.push_back(
-                    ego.trajectory_for_state(lane, map, ref_vel, prev_size, previous_path_x, previous_path_y));
-              } else {
-                possible_trajectories.push_back(
-                    ego.trajectory_for_state(lane, map, ref_vel, prev_size, previous_path_x, previous_path_y));
-              }
-              break;
-            case 1:
-              if (too_close) {
-                if (!lane_prohibited[0]) {
-                  lane = 0;
-                } else if (!lane_prohibited[2]) {
-                  lane = 2;
+                break;
+              case 1:
+                if (too_close) {
+                  if (!lane_prohibited[0]) {
+                    lane = 0;
+                  } else if (!lane_prohibited[2]) {
+                    lane = 2;
+                  }
+                  possible_trajectories.push_back(
+                      ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
+                } else {
+                  possible_trajectories.push_back(
+                      ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
                 }
-                possible_trajectories.push_back(
-                    ego.trajectory_for_state(lane, map, ref_vel, prev_size, previous_path_x, previous_path_y));
-              } else {
-                possible_trajectories.push_back(
-                    ego.trajectory_for_state(lane, map, ref_vel, prev_size, previous_path_x, previous_path_y));
-              }
-              break;
-            case 2:
-              if (too_close) {
-                if (!lane_prohibited[1]) {
-                  lane = 1;
+                break;
+              case 2:
+                if (too_close) {
+                  if (!lane_prohibited[1]) {
+                    lane = 1;
+                  }
+                  possible_trajectories.push_back(
+                      ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
+                } else {
+                  possible_trajectories.push_back(
+                      ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
                 }
-                possible_trajectories.push_back(
-                    ego.trajectory_for_state(lane, map, ref_vel, prev_size, previous_path_x, previous_path_y));
-              } else {
-                possible_trajectories.push_back(
-                    ego.trajectory_for_state(lane, map, ref_vel, prev_size, previous_path_x, previous_path_y));
-              }
-              break;
-          }
+                break;
+            }
 
 //          auto end = get_time::now();
 //          cout<<"Elapsed time is :  "<< chrono::duration_cast<ns>(end - start).count()<<" ns "<<endl;
 
-          msgJson["next_x"] = possible_trajectories[0].x;
-          msgJson["next_y"] = possible_trajectories[0].y;
+            msgJson["next_x"] = possible_trajectories[0].x;
+            msgJson["next_y"] = possible_trajectories[0].y;
 
-          auto msg = "42[\"control\","+ msgJson.dump()+"]";
+            auto msg = "42[\"control\","+ msgJson.dump()+"]";
 
-          //this_thread::sleep_for(chrono::milliseconds(1000));
+            //this_thread::sleep_for(chrono::milliseconds(1000));
+            ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+          }
+        } else {
+          // Manual driving
+          std::string msg = "42[\"manual\",{}]";
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
-      } else {
-        // Manual driving
-        std::string msg = "42[\"manual\",{}]";
-        ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
       }
-    }
   });
 
   // We don't need this since we're not using HTTP but if it's removed the
@@ -237,23 +237,23 @@ int main() {
   // doesn't compile :-(
   h.onHttpRequest([](uWS::HttpResponse *res, uWS::HttpRequest req, char *data,
                      size_t, size_t) {
-    const std::string s = "<h1>Hello world!</h1>";
-    if (req.getUrl().valueLength == 1) {
-      res->end(s.data(), s.length());
-    } else {
-      // i guess this should be done more gracefully?
-      res->end(nullptr, 0);
-    }
+      const std::string s = "<h1>Hello world!</h1>";
+      if (req.getUrl().valueLength == 1) {
+        res->end(s.data(), s.length());
+      } else {
+        // i guess this should be done more gracefully?
+        res->end(nullptr, 0);
+      }
   });
 
   h.onConnection([&h](uWS::WebSocket<uWS::SERVER> ws, uWS::HttpRequest req) {
-    std::cout << "Connected!!!" << std::endl;
+      std::cout << "Connected!!!" << std::endl;
   });
 
   h.onDisconnection([&h](uWS::WebSocket<uWS::SERVER> ws, int code,
                          char *message, size_t length) {
-    ws.close();
-    std::cout << "Disconnected" << std::endl;
+      ws.close();
+      std::cout << "Disconnected" << std::endl;
   });
 
   int port = 4567;
