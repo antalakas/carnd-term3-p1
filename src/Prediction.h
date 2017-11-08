@@ -26,17 +26,25 @@ public:
     bool lane_prohibited[3];
 
     struct Snapshot {
+        int id;
         double x;
         double y;
         double vx;
         double vy;
         double s;
         float d;
+        int lane;
+        double diff;
+        vector<double> pred;
     };
 
+    // predictions for vehicles behind ego
+    Snapshot snapshot[3];
+    double check_speed;
+
 public:
-    void Init();
-    double DoPredict(int lane, int prev_size, double car_s, std::map<int, Snapshot> &sensor_snapshots);
+    void Init(double speed_limit);
+    void DoPredict(int lane, int prev_size, double car_s, std::map<int, Snapshot> &sensor_snapshots);
 };
 
 

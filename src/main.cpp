@@ -117,15 +117,16 @@ int main() {
             std::map< int, Prediction::Snapshot > sensor_snapshots;
             for (int i=0; i<sensor_fusion.size(); i++) {
               Prediction::Snapshot snapshot;
+              snapshot.id = sensor_fusion[i][0];
               snapshot.x = sensor_fusion[i][1];
               snapshot.y = sensor_fusion[i][2];
               snapshot.vx = sensor_fusion[i][3];
               snapshot.vy = sensor_fusion[i][4];
               snapshot.s = sensor_fusion[i][5];
               snapshot.d = sensor_fusion[i][6];
+              snapshot.diff = 7000;
 
-              int id = sensor_fusion[i][0];
-              sensor_snapshots.insert(std::make_pair(id, snapshot));
+              sensor_snapshots.insert(std::make_pair(snapshot.id, snapshot));
             }
 
             json msgJson;
@@ -137,14 +138,16 @@ int main() {
               car_s = end_path_s;
             }
 
-            prediction.Init();
-            double check_speed = prediction.DoPredict(lane, prev_size, car_s, sensor_snapshots);
+            auto start = get_time::now();
+
+            prediction.Init(speed_limit);
+            prediction.DoPredict(lane, prev_size, car_s, sensor_snapshots);
 
             // Control
             if (prediction.too_close) {
 
               if (state == 0) {
-                desired_speed = check_speed;
+                desired_speed = prediction.check_speed;
                 state = 1;
               }
 
@@ -154,7 +157,6 @@ int main() {
               ref_vel += 0.224;
             }
 
-            auto start = get_time::now();
             Vehicle ego(car_x, car_y, car_s, car_d, car_yaw, car_speed);
             vector<Vehicle::next_vals> possible_trajectories;
 
@@ -195,8 +197,8 @@ int main() {
             possible_trajectories.push_back(
                 ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
 
-//          auto end = get_time::now();
-//          cout<<"Elapsed time is :  "<< chrono::duration_cast<ns>(end - start).count()<<" ns "<<endl;
+          auto end = get_time::now();
+          cout<<"Elapsed time is :  "<< chrono::duration_cast<ns>(end - start).count()<<" ns "<<endl;
 
             msgJson["next_x"] = possible_trajectories[0].x;
             msgJson["next_y"] = possible_trajectories[0].y;
