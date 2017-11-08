@@ -1,4 +1,24 @@
 # CarND-Path-Planning-Project
+
+### Model Documentation
+
+The process of developing the solution to this project is roughly as follows:
+The code from Q&A session was followed and smooth trajectories were generated.
+Revisions of the code led to refactoring and the outcome was the creation of Map class
+to house functions dealing with the map (like getXY) as well as the Vehicle class that is used to
+describe the ego Vehicle and generate trajectories for it. Several trial and error runs led to the definition
+of two states: 0 for following tha car in front of ego vehicle and 1 to overtake the vehicle in front of ego.
+Both states put safety above all: State 1 for example will execute the overtake when it senses no danger, taking into
+account that the ego vehicle runs at the speed of the vehicle in front of it. State 0 will try to drive at the speed limit
+unless the car in front drives at less speed and there is no way to overtake immediately. The model does not take into
+account emergency situations when another vehicle decides to change lane abruptly in front of ego vehicle.
+
+The trajectory is generated, taking into accounts points from the previous trajectory generated, and adding enough points
+to reach the number of 50. To do so all existing points are shifted and rotated in cartesian coordinates to make math simpler
+then exitisting points are passed to spline library and an spline is produced, the length of the trajectory is decided and taking
+into account the expected furthest point, the spline is interpolated with enough points to reach 50. Then all points are rotated
+and shifted back to the cartesian plane like in MPC project. The lane is part of the equations. The process was explained in the Q&A session.
+
 Self-Driving Car Engineer Nanodegree Program
    
 ### Simulator.

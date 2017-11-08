@@ -31,6 +31,7 @@ public:
         double y;
         double vx;
         double vy;
+        double speed;
         double s;
         float d;
         int lane;
@@ -41,10 +42,12 @@ public:
     // predictions for vehicles behind ego
     Snapshot snapshot[3];
     double check_speed;
+    double speed_limit;
+    int proposed_lane;
 
 public:
     void Init(double speed_limit);
-    void DoPredict(int lane, int prev_size, double car_s, std::map<int, Snapshot> &sensor_snapshots);
+    void DoPredict(int lane, int prev_size, double car_speed, double car_s, std::map<int, Snapshot> &sensor_snapshots);
 };
 
 

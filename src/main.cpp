@@ -138,10 +138,10 @@ int main() {
               car_s = end_path_s;
             }
 
-            auto start = get_time::now();
+//            auto start = get_time::now();
 
             prediction.Init(speed_limit);
-            prediction.DoPredict(lane, prev_size, car_s, sensor_snapshots);
+            prediction.DoPredict(lane, prev_size, car_speed, car_s, sensor_snapshots);
 
             // Control
             if (prediction.too_close) {
@@ -197,8 +197,8 @@ int main() {
             possible_trajectories.push_back(
                 ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
 
-          auto end = get_time::now();
-          cout<<"Elapsed time is :  "<< chrono::duration_cast<ns>(end - start).count()<<" ns "<<endl;
+//          auto end = get_time::now();
+//          cout<<"Elapsed time is :  "<< chrono::duration_cast<ns>(end - start).count()<<" ns "<<endl;
 
             msgJson["next_x"] = possible_trajectories[0].x;
             msgJson["next_y"] = possible_trajectories[0].y;
