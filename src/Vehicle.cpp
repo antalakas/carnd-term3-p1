@@ -98,6 +98,8 @@ Vehicle::next_vals Vehicle::trajectory_for_state(
 
   double x_add_on = 0;
 
+//  cout << "s:" << this->s << " d:" << this->d << endl;
+
   for(int i = 1; i <= 50-previous_path_x.size(); i++) {
     double N = (target_dist/(.02*ref_vel/2.24));
     double x_point = x_add_on+(target_x)/N;
@@ -116,7 +118,18 @@ Vehicle::next_vals Vehicle::trajectory_for_state(
 
     next_vals.x.push_back(x_point);
     next_vals.y.push_back(y_point);
+
+//    vector<double> a = map.getFrenet(x_point, y_point, this->yaw, map.waypoints_x, map.waypoints_y);
+////    cout << "s:" << this->s << " d:" << this->d << endl;
+//    cout << "s_calc:" << a[0] << " d_calc:" << a[1] << endl;
   }
+
+//  for(int i = 0; i < 50; i++) {
+//    vector<double> a = map.getFrenet(next_vals.x[i], next_vals.y[i], this->yaw, map.waypoints_x, map.waypoints_y);
+//    cout << "s_calc:" << a[0] << " d_calc:" << a[1] << endl;
+//  }
+//
+//  cout << "end of calc" << endl << endl;
 
   return next_vals;
 }

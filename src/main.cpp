@@ -5,11 +5,13 @@
 #include <iostream>
 #include <thread>
 #include <vector>
+#include <map>
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
 #include "Map.h"
 #include "Vehicle.h"
+#include "Prediction.h"
 #include <chrono>
 
 using  ns = chrono::nanoseconds;
@@ -39,6 +41,7 @@ int main() {
   uWS::Hub h;
   Trigonometry trigonometry;
   Map map;
+  Prediction prediction;
 
   int lane = 1;
   double ref_vel = 0;
@@ -70,7 +73,12 @@ int main() {
     map.waypoints_dy.push_back(d_y);
   }
 
-  h.onMessage([&map, &trigonometry, &lane, &ref_vel](
+  double speed_limit = 49.5;
+  double desired_speed = speed_limit;
+
+  int state = 0;
+
+  h.onMessage([&map, &prediction, &trigonometry, &lane, &ref_vel, &speed_limit, &desired_speed, &state](
       uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
       // "42" at the start of the message means there's a websocket message event.
       // The 4 signifies a websocket message
@@ -106,6 +114,20 @@ int main() {
             // Sensor Fusion Data, a list of all other cars on the same side of the road.
             auto sensor_fusion = j[1]["sensor_fusion"];
 
+            std::map< int, Prediction::Snapshot > sensor_snapshots;
+            for (int i=0; i<sensor_fusion.size(); i++) {
+              Prediction::Snapshot snapshot;
+              snapshot.x = sensor_fusion[i][1];
+              snapshot.y = sensor_fusion[i][2];
+              snapshot.vx = sensor_fusion[i][3];
+              snapshot.vy = sensor_fusion[i][4];
+              snapshot.s = sensor_fusion[i][5];
+              snapshot.d = sensor_fusion[i][6];
+
+              int id = sensor_fusion[i][0];
+              sensor_snapshots.insert(std::make_pair(id, snapshot));
+            }
+
             json msgJson;
 
             int prev_size = previous_path_x.size();
@@ -115,103 +137,63 @@ int main() {
               car_s = end_path_s;
             }
 
-            bool too_close = false;
-            bool lane_prohibited[3];
-            lane_prohibited[0] = false;
-            lane_prohibited[1] = false;
-            lane_prohibited[2] = false;
+            prediction.Init();
+            double check_speed = prediction.DoPredict(lane, prev_size, car_s, sensor_snapshots);
 
-//          vector<int> too_close_vehicles;
+            // Control
+            if (prediction.too_close) {
 
-            cout << "ego s: " << car_s << " ego d: " << car_d << endl;
-
-            for (int i=0; i<sensor_fusion.size(); i++) {
-              float d = sensor_fusion[i][6];
-              double check_car_s = sensor_fusion[i][5];
-
-              if (d<(2+4*lane+2) && d>(2+4*lane-2)) {
-                double vx = sensor_fusion[i][3];
-                double vy = sensor_fusion[i][4];
-                double check_speed = sqrt(vx*vx + vy*vy);
-
-                check_car_s += ((double)prev_size*.02*check_speed);
-
-                if ((check_car_s > car_s) &&( (check_car_s-car_s) < 30)) {
-                  // Decide to leave safe buffer ahead in current lane
-                  too_close = true;
-//                if (lane>0) {
-//                  lane = 0;
-//                }
-                }
-              } else {
-                if (abs(check_car_s - car_s) < 20) {
-                  cout << "car_id: " << sensor_fusion[i][0] << " s: " << check_car_s << " d: " << d << endl;
-                  if (d<4 && d>0) {
-                    lane_prohibited[0] = true;
-                  }
-                  if (d<8 && d>4) {
-                    lane_prohibited[1] = true;
-                  }
-                  if (d<12 && d>8) {
-                    lane_prohibited[2] = true;
-                  }
-//                too_close_vehicles.push_back(i);
-                }
+              if (state == 0) {
+                desired_speed = check_speed;
+                state = 1;
               }
-            }
 
-            if (too_close) {
               ref_vel -= 0.224;
             }
-            else if (ref_vel < 49.5) {
+            else if (ref_vel < desired_speed) {
               ref_vel += 0.224;
             }
 
             auto start = get_time::now();
             Vehicle ego(car_x, car_y, car_s, car_d, car_yaw, car_speed);
             vector<Vehicle::next_vals> possible_trajectories;
-//          possible_trajectories.push_back(
-//              ego.trajectory_for_state(lane, map, ref_vel, prev_size, previous_path_x, previous_path_y));
+
             switch (lane) {
               case 0:
-                if (too_close) {
-                  if (!lane_prohibited[1]) {
+                if (state == 1) {
+                  if (!prediction.lane_prohibited[1]) {
                     lane = 1;
+                    state = 0;
+                    desired_speed = speed_limit;
                   }
-                  possible_trajectories.push_back(
-                      ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
-                } else {
-                  possible_trajectories.push_back(
-                      ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
                 }
                 break;
               case 1:
-                if (too_close) {
-                  if (!lane_prohibited[0]) {
+                if (state == 1) {
+                  if (!prediction.lane_prohibited[0]) {
                     lane = 0;
-                  } else if (!lane_prohibited[2]) {
+                    state = 0;
+                    desired_speed = speed_limit;
+                  } else if (!prediction.lane_prohibited[2]) {
                     lane = 2;
+                    state = 0;
+                    desired_speed = speed_limit;
                   }
-                  possible_trajectories.push_back(
-                      ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
-                } else {
-                  possible_trajectories.push_back(
-                      ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
                 }
                 break;
               case 2:
-                if (too_close) {
-                  if (!lane_prohibited[1]) {
+                if (state == 1) {
+                  if (!prediction.lane_prohibited[1]) {
                     lane = 1;
+                    state = 0;
+                    desired_speed = speed_limit;
                   }
-                  possible_trajectories.push_back(
-                      ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
-                } else {
-                  possible_trajectories.push_back(
-                      ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
                 }
                 break;
             }
+
+            possible_trajectories.push_back(
+                ego.trajectory_for_state(lane, 30.0, map, ref_vel, prev_size, previous_path_x, previous_path_y));
 
 //          auto end = get_time::now();
 //          cout<<"Elapsed time is :  "<< chrono::duration_cast<ns>(end - start).count()<<" ns "<<endl;
@@ -282,3 +264,6 @@ int main() {
 //            next_x_vals.push_back(xy[0]);
 //            next_y_vals.push_back(xy[1]);
 //          }
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
