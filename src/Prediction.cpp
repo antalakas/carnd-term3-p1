@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include "Prediction.h"
-#include "math.h"
+#include <cmath>
 
 Prediction::Prediction() {
 }

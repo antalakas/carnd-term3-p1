@@ -3,6 +3,7 @@
 //
 
 #include "Map.h"
+#include <cmath>
 
 Map::Map() {
 }

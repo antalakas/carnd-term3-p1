@@ -5,7 +5,7 @@
 #include <iostream>
 #include "Vehicle.h"
 #include <iostream>
-#include <math.h>
+#include <cmath>
 #include <map>
 #include <string>
 #include <iterator>

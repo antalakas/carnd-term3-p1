@@ -5,7 +5,6 @@
 #ifndef PATH_PLANNING_MAP_H
 #define PATH_PLANNING_MAP_H
 
-#include <math.h>
 #include <vector>
 #include "Trigonometry.h"
 

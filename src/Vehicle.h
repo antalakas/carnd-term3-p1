@@ -9,7 +9,6 @@
 #include <random>
 #include <sstream>
 #include <fstream>
-#include <math.h>
 #include <vector>
 #include <map>
 #include <string>
